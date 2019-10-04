@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -54,6 +55,12 @@ public final class Main {
         // setting offset reset to earliest so that we can re-run the demo code with the same pre-loaded data
         // Note: To re-run the demo, you need to use the offset reset tool:
         // https://cwiki.apache.org/confluence/display/KAFKA/Kafka+Streams+Application+Reset+Tool
+        props.put(StreamsConfig.RETRIES_CONFIG, 5);
+        props.put(StreamsConfig.REQUEST_TIMEOUT_MS_CONFIG, 500);
+        props.put(ConsumerConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, 500);
+        props.put(ConsumerConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG, 1000);
+        props.put(ConsumerConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 300);
+        props.put(ConsumerConfig.RETRY_BACKOFF_MS_CONFIG, 5);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         final StreamsBuilder builder = new StreamsBuilder();
@@ -69,6 +76,8 @@ public final class Main {
         counts.toStream().to("streams-wordcount-output", Produced.with(Serdes.String(), Serdes.Long()));
 
         final KafkaStreams streams = new KafkaStreams(builder.build(), props);
+        streams.setStateListener(new StateListener());
+        streams.setUncaughtExceptionHandler(new UncaughtExceptionHandler());
         final CountDownLatch latch = new CountDownLatch(1);
 
         // attach shutdown handler to catch control-c
